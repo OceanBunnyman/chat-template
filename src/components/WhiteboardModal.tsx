@@ -111,12 +111,13 @@ export function WhiteboardModal({
 	}
 
 	return (
-		<div className="modal-overlay" onClick={handleOverlayClick}>
+		<div className="modal-popup" onClick={handleOverlayClick}>
 			<Tldraw
 				components={components}
 				forceMobile
 				options={options}
 				snapshot={initialSnapshot}
+				persistenceKey="hide-ui-example" hideUi
 				onMount={(editor) => {
 					setEditor(editor)
 

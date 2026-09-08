@@ -453,6 +453,19 @@ body {
 	backdrop-filter: blur(10px);
 }
 
+.modal-popup {
+	position: relative;
+	width: 100%;
+	max-width: 800px;
+	height: 360px;
+	background: white;
+	border-radius: 8px;
+	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+}
+
 .modal-overlay .tl-container {
 	pointer-events: none;
 }

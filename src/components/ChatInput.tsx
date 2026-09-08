@@ -104,6 +104,18 @@ export function ChatInput({
 	)
 
 	return (
+		<div className="chat-composer">
+			{/* if the user has opened the whiteboard modal, we show it. */}
+			{openWhiteboard && (
+				<WhiteboardModal
+					imageId={openWhiteboard.id}
+					initialSnapshot={openWhiteboard.snapshot}
+					uploadedFile={openWhiteboard.uploadedFile}
+					imageName={openWhiteboard.imageName}
+					onCancel={handleCancelWhiteboard}
+					onAccept={handleAcceptWhiteboard}
+				/>
+			)}
 		<form onSubmit={handleSubmit} className="chat-input-form">
 			{/* if the user is dragging an image over the input area, we show a visual indicator
 			hiding the normal input content. */}
@@ -196,17 +208,8 @@ export function ChatInput({
 				</button>
 			</div>
 
-			{/* if the user has opened the whiteboard modal, we show it. */}
-			{openWhiteboard && (
-				<WhiteboardModal
-					imageId={openWhiteboard.id}
-					initialSnapshot={openWhiteboard.snapshot}
-					uploadedFile={openWhiteboard.uploadedFile}
-					imageName={openWhiteboard.imageName}
-					onCancel={handleCancelWhiteboard}
-					onAccept={handleAcceptWhiteboard}
-				/>
-			)}
+			
 		</form>
+		</div>
 	)
 }

@@ -32,6 +32,13 @@ export function useChatMessageStorage(): [UIMessage[] | null, (messages: UIMessa
 				setInitialMessages(validatedMessages)
 			} catch (err) {
 				if (isCancelled) return
+				// A missing file is the expected state for a new visitor (or after site data is
+				// cleared), so initialize an empty chat without reporting a console error.
+				if (err instanceof DOMException && err.name === 'NotFoundError') {
+					setInitialMessages([])
+					return
+				}
+
 				console.error('Error loading chat messages from storage', err)
 				setInitialMessages([])
 			}

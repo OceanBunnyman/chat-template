@@ -5,7 +5,7 @@ import { WhiteboardImage } from '../components/WhiteboardModal'
 interface OpenWhiteboard {
 	snapshot?: TLEditorSnapshot
 	id?: string
-	uploadedFile?: File
+	uploadedFiles?: File[]
 	imageName?: string
 }
 
@@ -34,7 +34,7 @@ type ChatInputAction =
 	/** Indicates drag operation has left the input area */
 	| { type: 'dragLeave' }
 	/** Handles dropping an image file to open in whiteboard */
-	| { type: 'drop'; file: File }
+	| { type: 'drop'; file: File[] }
 
 const initialState: ChatInputState = {
 	input: '',
@@ -61,10 +61,10 @@ function chatInputReducer(state: ChatInputState, action: ChatInputAction): ChatI
 		case 'clear':
 			return initialState
 		case 'openWhiteboard': {
-			const { snapshot, id, uploadedFile, imageName } = action
+			const { snapshot, id, uploadedFiles, imageName } = action
 			return {
 				...state,
-				openWhiteboard: { snapshot, id, uploadedFile, imageName },
+				openWhiteboard: { snapshot, id, uploadedFiles, imageName },
 				isDragging: false,
 			}
 		}
@@ -78,7 +78,10 @@ function chatInputReducer(state: ChatInputState, action: ChatInputAction): ChatI
 			return {
 				...state,
 				isDragging: false,
-				openWhiteboard: { uploadedFile: action.file, imageName: action.file.name },
+				openWhiteboard: {
+					uploadedFiles: action.file,
+					imageName: action.file[0]?.name,
+				},
 			}
 		default:
 			return state
