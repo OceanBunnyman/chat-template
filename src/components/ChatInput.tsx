@@ -77,12 +77,22 @@ export function ChatInput({
 		const input = document.createElement('input')
 		input.type = 'file'
 		input.accept = 'image/*'
+		input.multiple = true
 		input.onchange = (e: Event) => {
-			const file = (e.target as HTMLInputElement).files?.[0]
-			if (!file || !file.type.startsWith('image/')) return
+			const files = Array.from((e.target as HTMLInputElement).files ?? []).filter((file) =>
+				file.type.startsWith('image/')
+			)
+			if (files.length === 0) return
 
-			// Open whiteboard with the uploaded file
-			dispatch({ type: 'openWhiteboard', uploadedFile: file, imageName: file.name })
+			// Open one whiteboard containing all selected images.
+			dispatch({
+				type: 'openWhiteboard',
+				uploadedFiles: files,
+				imageName:
+					files.length === 1
+						? 'annotated-image.png'
+						: `annotated-board-${files.length}-images.png`,
+			})
 		}
 		input.click()
 	}, [dispatch])
@@ -105,18 +115,19 @@ export function ChatInput({
 
 	return (
 		<div className="chat-composer">
+			
+		<form onSubmit={handleSubmit} className="chat-input-form">
 			{/* if the user has opened the whiteboard modal, we show it. */}
 			{openWhiteboard && (
 				<WhiteboardModal
 					imageId={openWhiteboard.id}
 					initialSnapshot={openWhiteboard.snapshot}
-					uploadedFile={openWhiteboard.uploadedFile}
+					uploadedFiles={openWhiteboard.uploadedFiles}
 					imageName={openWhiteboard.imageName}
 					onCancel={handleCancelWhiteboard}
 					onAccept={handleAcceptWhiteboard}
 				/>
 			)}
-		<form onSubmit={handleSubmit} className="chat-input-form">
 			{/* if the user is dragging an image over the input area, we show a visual indicator
 			hiding the normal input content. */}
 			{isDragging && (

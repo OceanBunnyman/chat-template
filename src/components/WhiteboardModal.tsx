@@ -1,12 +1,16 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
 	createShapeId,
+	DefaultToolbar,
+	DrawToolbarItem,
 	Editor,
+	EraserToolbarItem,
 	notifyIfFileNotAllowed,
 	TLComponents,
 	Tldraw,
 	TldrawOptions,
 	TldrawUiButton,
+	TldrawUiMenuGroup,
 	TldrawUiRow,
 	TLEditorSnapshot,
 	useEditor,
@@ -34,7 +38,7 @@ interface WhiteboardModalProps {
 	onCancel: () => void
 	onAccept: (image: WhiteboardImage) => void
 	imageId?: string
-	uploadedFile?: File
+	uploadedFiles?: File[]
 	imageName?: string
 }
 
@@ -47,12 +51,15 @@ const options: Partial<TldrawOptions> = {
 	maxFontsToLoadBeforeRender: 0,
 }
 
+const IMPORTED_IMAGE_HEIGHT = 320
+const IMPORTED_IMAGE_GAP = 48
+
 export function WhiteboardModal({
 	initialSnapshot,
 	onCancel,
 	onAccept,
 	imageId,
-	uploadedFile,
+	uploadedFiles,
 	imageName,
 }: WhiteboardModalProps) {
 	const [editor, setEditor] = useState<Editor | null>(null)
@@ -86,6 +93,17 @@ export function WhiteboardModal({
 	// important that we memoize them or define them outside the tldraw component.
 	const components = useMemo(
 		(): TLComponents => ({
+			Toolbar: () => (
+				<DefaultToolbar>
+					<TldrawUiMenuGroup id="annotation-tools">
+						<DrawToolbarItem />
+						<EraserToolbarItem />
+					</TldrawUiMenuGroup>
+				</DefaultToolbar>
+			),
+			MainMenu: null,
+			StylePanel: null,
+			ImageToolbar: null,
 			// The "SharePanel" is in the top-right of the editor. Here we want it to show our save
 			// and cancel buttons:
 			SharePanel: () => (
@@ -117,7 +135,7 @@ export function WhiteboardModal({
 				forceMobile
 				options={options}
 				snapshot={initialSnapshot}
-				persistenceKey="hide-ui-example" hideUi
+				// persistenceKey="hide-ui-example" hideUi
 				onMount={(editor) => {
 					setEditor(editor)
 
@@ -129,62 +147,82 @@ export function WhiteboardModal({
 				{/* if the user uploaded a file, we insert it in a special component. this means we
 				can use hooks that depend on tldraw's ui to do things like show a toast if
 				something goes wrong. */}
-				<InsideOfTldrawContext uploadedFile={uploadedFile} />
+				<InsideOfTldrawContext uploadedFiles={uploadedFiles} />
 			</Tldraw>
 		</div>
 	)
 }
 
-function InsideOfTldrawContext({ uploadedFile }: { uploadedFile?: File }) {
+function InsideOfTldrawContext({ uploadedFiles }: { uploadedFiles?: File[] }) {
 	const toasts = useToasts()
 	const msg = useTranslation()
 	const editor = useEditor()
+	const importedFiles = useRef(new WeakSet<File>())
 
 	useEffect(() => {
-		if (!uploadedFile) return
+		if (!uploadedFiles?.length) return
 
-		// this effect can run multiple times, but we only want the file to be uploaded once:
-		if ((uploadedFile as any).didUpload) return
-		;(uploadedFile as any).didUpload = true
-		;(async () => {
-			// we check if the file is allowed to be uploaded:
-			if (!notifyIfFileNotAllowed(editor, uploadedFile, { toasts, msg })) return
+		// Effects may run more than once in development. Track imports without mutating File objects.
+		const newFiles = uploadedFiles.filter((file) => !importedFiles.current.has(file))
+		if (newFiles.length === 0) return
+		newFiles.forEach((file) => importedFiles.current.add(file))
 
-			// we get the asset for the uploaded file:
-			const asset = await editor.getAssetForExternalContent({
-				type: 'file',
-				file: uploadedFile,
-			})
-			if (!asset || asset.type !== 'image') return
+		void (async () => {
+			const assets = (
+				await Promise.all(
+					newFiles.map(async (file) => {
+						if (!notifyIfFileNotAllowed(editor, file, { toasts, msg })) return null
 
-			// scale so the max dimension is 1000px:
-			const scale = Math.min(1000 / Math.max(asset.props.w, asset.props.h), 1)
-			const center = editor.getViewportPageBounds().center
-			const width = asset.props.w * scale
-			const height = asset.props.h * scale
+						const asset = await editor.getAssetForExternalContent({
+							type: 'file',
+							file,
+						})
 
-			// create an ID for the new shape so we can select it later:
-			const shapeId = createShapeId()
+						return asset?.type === 'image' ? asset : null
+					})
+				)).filter((asset) => asset !== null)
 
-			// create the shape, select it, make it fill the screen, and start cropping it:
-			editor
-				.createAssets([asset])
-				.createShape({
-					id: shapeId,
-					type: 'image',
-					x: center.x - width / 2,
-					y: center.y - height / 2,
+			if (assets.length === 0 || editor.isDisposed) return
+
+			const imageWidths = assets.map(
+				(asset) => (asset.props.w / Math.max(asset.props.h, 1)) * IMPORTED_IMAGE_HEIGHT
+			)
+			const totalWidth =
+				imageWidths.reduce((sum, width) => sum + width, 0) +
+				IMPORTED_IMAGE_GAP * Math.max(assets.length - 1, 0)
+			const viewportCenter = editor.getViewportPageBounds().center
+			let nextX = viewportCenter.x - totalWidth / 2
+			const y = viewportCenter.y - IMPORTED_IMAGE_HEIGHT / 2
+
+			const shapeIds = assets.map(() => createShapeId())
+			const shapes = assets.map((asset, index) => {
+				const width = imageWidths[index]
+				const shape = {
+					id: shapeIds[index],
+					type: 'image' as const,
+					x: nextX,
+					y,
 					props: {
 						assetId: asset.id,
 						w: width,
-						h: height,
+						h: IMPORTED_IMAGE_HEIGHT,
 					},
-				})
-				.setSelectedShapes([shapeId])
+				}
+
+				nextX += width + IMPORTED_IMAGE_GAP
+				return shape
+			})
+
+			editor
+				.createAssets(assets)
+				.createShapes(shapes)
+				.setSelectedShapes(shapeIds)
 				.zoomToSelection()
-				.setCurrentTool('select.crop')
-		})()
-	}, [uploadedFile, toasts, msg, editor])
+				.setCurrentTool('select')
+		})().catch((error) => {
+			console.error('Failed to add images to whiteboard', error)
+		})
+	}, [uploadedFiles, toasts, msg, editor])
 
 	return null
 }

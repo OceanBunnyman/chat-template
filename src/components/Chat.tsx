@@ -140,9 +140,11 @@ function ChatInner({
 
 	const handleDrop = (e: React.DragEvent) => {
 		e.preventDefault()
-		const file = e.dataTransfer.files[0]
-		if (file && file.type.startsWith('image/') && !chatInputState.openWhiteboard) {
-			chatInputDispatch({ type: 'drop', file })
+		const files = Array.from(e.dataTransfer.files).filter((file) =>
+			file.type.startsWith('image/')
+		)
+		if (files.length > 0 && !chatInputState.openWhiteboard) {
+			chatInputDispatch({ type: 'drop', files })
 		} else {
 			chatInputDispatch({ type: 'dragLeave' })
 		}

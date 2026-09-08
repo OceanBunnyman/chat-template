@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown'
 import { FileHelpers } from 'tldraw'
 import { TldrawProviderMetadata } from './WhiteboardModal'
 
-export type ImageClickTarget = TldrawProviderMetadata | { uploadedFile: File }
+export type ImageClickTarget = TldrawProviderMetadata | { uploadedFiles: File[] }
 
 interface ChatMessageProps {
 	message: UIMessage
@@ -39,7 +39,7 @@ export const ChatMessage = memo(function ChatMessage({ message, onImageClick }: 
 						} else {
 							const blob = await FileHelpers.urlToBlob(part.url)
 							const file = new File([blob], part.filename || 'image.png', { type: blob.type })
-							onImageClick({ uploadedFile: file })
+							onImageClick({ uploadedFiles: [file] })
 						}
 					}
 

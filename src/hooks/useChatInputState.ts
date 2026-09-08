@@ -33,8 +33,8 @@ type ChatInputAction =
 	| { type: 'dragEnter' }
 	/** Indicates drag operation has left the input area */
 	| { type: 'dragLeave' }
-	/** Handles dropping an image file to open in whiteboard */
-	| { type: 'drop'; file: File[] }
+	/** Handles dropping image files to open in one whiteboard */
+	| { type: 'drop'; files: File[] }
 
 const initialState: ChatInputState = {
 	input: '',
@@ -79,8 +79,11 @@ function chatInputReducer(state: ChatInputState, action: ChatInputAction): ChatI
 				...state,
 				isDragging: false,
 				openWhiteboard: {
-					uploadedFiles: action.file,
-					imageName: action.file[0]?.name,
+					uploadedFiles: action.files,
+					imageName:
+						action.files.length === 1
+							? 'annotated-image.png'
+							: `annotated-board-${action.files.length}-images.png`,
 				},
 			}
 		default:
