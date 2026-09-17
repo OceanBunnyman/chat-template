@@ -1,4 +1,6 @@
 import { Ref, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { EmojiPicker } from './emoji/EmojiPicker'
+import { EmojiShapeUtil } from './emoji/EmojiShapeUtil'
 import {
 	createShapeId,
 	uniqueId,
@@ -58,6 +60,7 @@ const options: Partial<TldrawOptions> = {
 	maxFontsToLoadBeforeRender: 0,
 }
 
+const shapeUtils = [EmojiShapeUtil]
 const IMPORTED_IMAGE_HEIGHT = 320
 const IMPORTED_IMAGE_WIDTH = 320
 const IMPORTED_IMAGE_GAP = 48
@@ -135,8 +138,10 @@ export function WhiteboardModal({
 	)
 
 	return (
+		<>
 		<div className="modal-popup">
 			<Tldraw
+				shapeUtils={shapeUtils}
 				components={components}
 				forceMobile
 				options={options}
@@ -156,6 +161,8 @@ export function WhiteboardModal({
 				<InsideOfTldrawContext uploadedFiles={uploadedFiles} pendingImport={pendingImport} />
 			</Tldraw>
 		</div>
+		{editor && <EmojiPicker editor={editor} />}
+		</>
 	)
 }
 
