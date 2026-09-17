@@ -19,7 +19,7 @@ export async function POST(req: Request) {
 			'You can use markdown in your responses.',
 			'Keep your responses short and concise.',
 		].join(' '),
-		messages: convertToModelMessages(messages),
+		messages: await convertToModelMessages(messages),
 	})
 
 	return result.toUIMessageStreamResponse()

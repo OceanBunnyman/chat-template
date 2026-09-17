@@ -1,15 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Ref, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import {
 	createShapeId,
+	uniqueId,
 	DefaultToolbar,
 	DrawToolbarItem,
 	Editor,
 	EraserToolbarItem,
 	notifyIfFileNotAllowed,
+	SelectToolbarItem,
 	TLComponents,
 	Tldraw,
 	TldrawOptions,
 	TldrawUiButton,
+	TldrawUiButtonIcon,
 	TldrawUiMenuGroup,
 	TldrawUiRow,
 	TLEditorSnapshot,
@@ -33,10 +36,14 @@ export interface WhiteboardImage {
 	height: number
 }
 
+export interface WhiteboardHandle {
+	exportImage: () => Promise<WhiteboardImage | null>
+}
+
 interface WhiteboardModalProps {
+	ref?: Ref<WhiteboardHandle>
 	initialSnapshot?: TLEditorSnapshot
 	onCancel: () => void
-	onAccept: (image: WhiteboardImage) => void
 	imageId?: string
 	uploadedFiles?: File[]
 	imageName?: string
@@ -52,42 +59,47 @@ const options: Partial<TldrawOptions> = {
 }
 
 const IMPORTED_IMAGE_HEIGHT = 320
+const IMPORTED_IMAGE_WIDTH = 320
 const IMPORTED_IMAGE_GAP = 48
+const MOBILE_LAYOUT_MAX_WIDTH = 768
 
 export function WhiteboardModal({
 	initialSnapshot,
 	onCancel,
-	onAccept,
+	ref,
 	imageId,
 	uploadedFiles,
 	imageName,
 }: WhiteboardModalProps) {
 	const [editor, setEditor] = useState<Editor | null>(null)
 
-	const handleSave = useCallback(async () => {
-		if (!editor) return
+	const pendingImport = useRef<Promise<void> | null>(null)
+	const exportImage = useCallback(async () => {
+		if (!editor) throw new Error('画板正在加载，请稍后再发送。')
+		await pendingImport.current
 
 		// if there are no shapes, we don't want to save the image:
 		const shapes = editor.getCurrentPageShapes()
 		if (shapes.length === 0) {
-			onCancel()
-			return
+			return null
 		}
 
-		// when the user clicks save, we convert the current whiteboard to an image:
+		// Export the latest board when the chat composer sends the message.
 		const image = await editor.toImageDataUrl(shapes, { format: 'png' })
 
 		// we also take a snapshot of the editor state, so we can still edit
 		// it if we open it up again later, and we pass the image data and the
 		// snapshot to the parent component, so it can add it to the chat input:
-		onAccept({
-			id: imageId ?? crypto.randomUUID(),
+		return {
+			id: imageId ?? uniqueId(),
 			name: imageName ?? 'tldraw whiteboard.png',
 			snapshot: editor.getSnapshot(),
 			type: 'image/png',
 			...image,
-		})
-	}, [onCancel, onAccept, imageId, imageName, editor])
+		}
+	}, [imageId, imageName, editor])
+
+	useImperativeHandle(ref, () => ({ exportImage }), [exportImage])
 
 	// components are used to override parts of the tldraw ui. they shouldn't change often, so it's
 	// important that we memoize them or define them outside the tldraw component.
@@ -96,6 +108,7 @@ export function WhiteboardModal({
 			Toolbar: () => (
 				<DefaultToolbar>
 					<TldrawUiMenuGroup id="annotation-tools">
+						<SelectToolbarItem />
 						<DrawToolbarItem />
 						<EraserToolbarItem />
 					</TldrawUiMenuGroup>
@@ -104,32 +117,25 @@ export function WhiteboardModal({
 			MainMenu: null,
 			StylePanel: null,
 			ImageToolbar: null,
-			// The "SharePanel" is in the top-right of the editor. Here we want it to show our save
-			// and cancel buttons:
+			// The board is attached automatically; this action discards the open draft.
 			SharePanel: () => (
 				<TldrawUiRow className="whiteboard-actions">
-					<TldrawUiButton type="normal" onClick={onCancel}>
-						Cancel
-					</TldrawUiButton>
-					<TldrawUiButton type="primary" onClick={handleSave}>
-						{imageId ? 'Save' : 'Add'}
+					<TldrawUiButton
+						type="icon"
+						onClick={onCancel}
+						aria-label="Remove board"
+						tooltip="Remove board"
+					>
+						<TldrawUiButtonIcon icon="cross-2" />
 					</TldrawUiButton>
 				</TldrawUiRow>
 			),
 		}),
-		[onCancel, handleSave, imageId]
+		[onCancel]
 	)
 
-	// when the user clicks outside the modal, we close it. we add their image to the chat input in
-	// case they wanted it - they can easily delete it if not.
-	const handleOverlayClick = (e: React.MouseEvent) => {
-		if (e.target === e.currentTarget) {
-			handleSave()
-		}
-	}
-
 	return (
-		<div className="modal-popup" onClick={handleOverlayClick}>
+		<div className="modal-popup">
 			<Tldraw
 				components={components}
 				forceMobile
@@ -147,13 +153,13 @@ export function WhiteboardModal({
 				{/* if the user uploaded a file, we insert it in a special component. this means we
 				can use hooks that depend on tldraw's ui to do things like show a toast if
 				something goes wrong. */}
-				<InsideOfTldrawContext uploadedFiles={uploadedFiles} />
+				<InsideOfTldrawContext uploadedFiles={uploadedFiles} pendingImport={pendingImport} />
 			</Tldraw>
 		</div>
 	)
 }
 
-function InsideOfTldrawContext({ uploadedFiles }: { uploadedFiles?: File[] }) {
+function InsideOfTldrawContext({ uploadedFiles, pendingImport }: { uploadedFiles?: File[]; pendingImport: { current: Promise<void> | null } }) {
 	const toasts = useToasts()
 	const msg = useTranslation()
 	const editor = useEditor()
@@ -167,7 +173,7 @@ function InsideOfTldrawContext({ uploadedFiles }: { uploadedFiles?: File[] }) {
 		if (newFiles.length === 0) return
 		newFiles.forEach((file) => importedFiles.current.add(file))
 
-		void (async () => {
+		const task = (async () => {
 			const assets = (
 				await Promise.all(
 					newFiles.map(async (file) => {
@@ -184,32 +190,51 @@ function InsideOfTldrawContext({ uploadedFiles }: { uploadedFiles?: File[] }) {
 
 			if (assets.length === 0 || editor.isDisposed) return
 
-			const imageWidths = assets.map(
-				(asset) => (asset.props.w / Math.max(asset.props.h, 1)) * IMPORTED_IMAGE_HEIGHT
+			const useVerticalLayout =
+				editor.getViewportScreenBounds().w <= MOBILE_LAYOUT_MAX_WIDTH
+			const imageSizes = assets.map((asset) =>
+				useVerticalLayout
+					? {
+							w: IMPORTED_IMAGE_WIDTH,
+							h: (asset.props.h / Math.max(asset.props.w, 1)) * IMPORTED_IMAGE_WIDTH,
+						}
+					: {
+							w: (asset.props.w / Math.max(asset.props.h, 1)) * IMPORTED_IMAGE_HEIGHT,
+							h: IMPORTED_IMAGE_HEIGHT,
+						}
 			)
-			const totalWidth =
-				imageWidths.reduce((sum, width) => sum + width, 0) +
-				IMPORTED_IMAGE_GAP * Math.max(assets.length - 1, 0)
+			const totalWidth = useVerticalLayout
+				? IMPORTED_IMAGE_WIDTH
+				: imageSizes.reduce((sum, size) => sum + size.w, 0) +
+					IMPORTED_IMAGE_GAP * Math.max(assets.length - 1, 0)
+			const totalHeight = useVerticalLayout
+				? imageSizes.reduce((sum, size) => sum + size.h, 0) +
+					IMPORTED_IMAGE_GAP * Math.max(assets.length - 1, 0)
+				: IMPORTED_IMAGE_HEIGHT
 			const viewportCenter = editor.getViewportPageBounds().center
 			let nextX = viewportCenter.x - totalWidth / 2
-			const y = viewportCenter.y - IMPORTED_IMAGE_HEIGHT / 2
+			let nextY = viewportCenter.y - totalHeight / 2
 
 			const shapeIds = assets.map(() => createShapeId())
 			const shapes = assets.map((asset, index) => {
-				const width = imageWidths[index]
+				const size = imageSizes[index]
 				const shape = {
 					id: shapeIds[index],
 					type: 'image' as const,
 					x: nextX,
-					y,
+					y: nextY,
 					props: {
 						assetId: asset.id,
-						w: width,
-						h: IMPORTED_IMAGE_HEIGHT,
+						w: size.w,
+						h: size.h,
 					},
 				}
 
-				nextX += width + IMPORTED_IMAGE_GAP
+				if (useVerticalLayout) {
+					nextY += size.h + IMPORTED_IMAGE_GAP
+				} else {
+					nextX += size.w + IMPORTED_IMAGE_GAP
+				}
 				return shape
 			})
 
@@ -219,10 +244,12 @@ function InsideOfTldrawContext({ uploadedFiles }: { uploadedFiles?: File[] }) {
 				.setSelectedShapes(shapeIds)
 				.zoomToSelection()
 				.setCurrentTool('select')
-		})().catch((error) => {
+		})()
+		pendingImport.current = task
+		void task.catch((error) => {
 			console.error('Failed to add images to whiteboard', error)
 		})
-	}, [uploadedFiles, toasts, msg, editor])
+	}, [uploadedFiles, toasts, msg, editor, pendingImport])
 
 	return null
 }

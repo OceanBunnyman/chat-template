@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
+import { FormEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { DefaultSpinner } from 'tldraw'
 import { useChatInputState } from '../hooks/useChatInputState'
 import { ChatInputImage } from './ChatInputImage'
@@ -6,7 +6,7 @@ import { ImageIcon } from './icons/ImageIcon'
 import { SendIcon } from './icons/SendIcon'
 import { UploadIcon } from './icons/UploadIcon'
 import { WhiteboardIcon } from './icons/WhiteboardIcon'
-import { WhiteboardImage, WhiteboardModal } from './WhiteboardModal'
+import { WhiteboardHandle, WhiteboardImage, WhiteboardModal } from './WhiteboardModal'
 
 interface ChatInputProps {
 	onSendMessage: (message: string, images: WhiteboardImage[]) => void
@@ -24,7 +24,11 @@ export function ChatInput({
 	dispatch,
 }: ChatInputProps) {
 	const { input, images, openWhiteboard, isDragging } = state
-	const disabled = waitingForResponse || isDragging
+	const [isExporting, setIsExporting] = useState(false)
+	const [exportError, setExportError] = useState<string | null>(null)
+	const whiteboardRef = useRef<WhiteboardHandle>(null)
+	const sendingRef = useRef(false)
+	const disabled = waitingForResponse || isDragging || isExporting
 
 	const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -50,10 +54,28 @@ export function ChatInput({
 
 	// the user can only send a message if the input is not disabled and there are either images or
 	// text ready to send
-	const canSend = !disabled && (images.length > 0 || input.trim())
+	const canSend = !disabled && (images.length > 0 || input.trim() || !!openWhiteboard)
 
-	const send = () => {
-		if (canSend) onSendMessage(input, images)
+	const send = async () => {
+		if (!canSend || sendingRef.current) return
+		sendingRef.current = true
+		setIsExporting(true)
+		setExportError(null)
+		try {
+			let attachments = images
+			if (openWhiteboard) {
+				if (!whiteboardRef.current) throw new Error('画板正在加载，请稍后再发送。')
+				const image = await whiteboardRef.current.exportImage()
+				attachments = images.filter((item) => item.id !== openWhiteboard.id)
+				if (image) attachments = [...attachments, image]
+			}
+			if (input.trim() || attachments.length) onSendMessage(input, attachments)
+		} catch {
+			setExportError('画板导出失败，草稿已保留，请重试。')
+		} finally {
+			sendingRef.current = false
+			setIsExporting(false)
+		}
 	}
 
 	// when the user submits the form, we send the message.
@@ -65,7 +87,7 @@ export function ChatInput({
 	// when the user presses enter, we send the message.
 	const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
 		// Shift+Enter: allow default behavior (insert newline)
-		if (e.key !== 'Enter' || e.shiftKey) return
+		if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return
 		// Enter: submit form
 		e.preventDefault()
 		send()
@@ -102,30 +124,21 @@ export function ChatInput({
 		dispatch({ type: 'closeWhiteboard' })
 	}, [dispatch])
 
-	// when the user accepts the whiteboard modal, we add the image to the chat input & close it.
-	const handleAcceptWhiteboard = useCallback(
-		(image: WhiteboardImage) => {
-			dispatch({ type: 'closeWhiteboard' })
-			dispatch({ type: 'setImage', image })
-			// Re-focus the input after adding an image
-			textareaRef.current?.focus()
-		},
-		[dispatch]
-	)
 
 	return (
 		<div className="chat-composer">
 			
 		<form onSubmit={handleSubmit} className="chat-input-form">
+			{exportError && <p role="alert">{exportError}</p>}
 			{/* if the user has opened the whiteboard modal, we show it. */}
 			{openWhiteboard && (
 				<WhiteboardModal
+					ref={whiteboardRef}
 					imageId={openWhiteboard.id}
 					initialSnapshot={openWhiteboard.snapshot}
 					uploadedFiles={openWhiteboard.uploadedFiles}
 					imageName={openWhiteboard.imageName}
 					onCancel={handleCancelWhiteboard}
-					onAccept={handleAcceptWhiteboard}
 				/>
 			)}
 			{/* if the user is dragging an image over the input area, we show a visual indicator
@@ -202,7 +215,7 @@ export function ChatInput({
 					aria-label="Draw a sketch"
 					title="Draw a sketch"
 					className="icon-button"
-					disabled={disabled}
+					disabled={disabled || !!openWhiteboard}
 					onClick={() => dispatch({ type: 'openWhiteboard' })}
 				>
 					<WhiteboardIcon />
