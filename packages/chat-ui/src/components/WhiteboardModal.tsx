@@ -21,20 +21,7 @@ import {
 	useTranslation,
 } from 'tldraw'
 
-export interface TldrawProviderMetadata {
-	snapshot: TLEditorSnapshot
-	imageName: string
-}
-
-export interface WhiteboardImage {
-	id: string
-	name: string
-	url: string
-	snapshot: TLEditorSnapshot
-	type: string
-	width: number
-	height: number
-}
+import type { WhiteboardImage } from '../types/chat'
 
 export interface WhiteboardHandle {
 	exportImage: () => Promise<WhiteboardImage | null>

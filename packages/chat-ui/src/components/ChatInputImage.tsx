@@ -1,5 +1,5 @@
 import { XIcon } from './icons/XIcon'
-import { WhiteboardImage } from './WhiteboardModal'
+import type { WhiteboardImage } from '../types/chat'
 
 interface ChatInputImageProps {
 	image: WhiteboardImage

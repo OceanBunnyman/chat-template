@@ -1,3 +1,4 @@
+import '@chat/ui/styles.css'
 import './styles.css'
 
 export const metadata = {

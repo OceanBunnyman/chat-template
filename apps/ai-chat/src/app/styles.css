@@ -1,0 +1,8 @@
+/* Thinking state styling */
+.thinking-message .thinking-text {
+	color: #64748b;
+	font-style: italic;
+	font-size: 14px;
+	/* No background or padding - just plain text */
+}
+

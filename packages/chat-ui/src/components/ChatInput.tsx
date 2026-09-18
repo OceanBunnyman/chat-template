@@ -6,11 +6,13 @@ import { ImageIcon } from './icons/ImageIcon'
 import { SendIcon } from './icons/SendIcon'
 import { UploadIcon } from './icons/UploadIcon'
 import { WhiteboardIcon } from './icons/WhiteboardIcon'
-import { WhiteboardHandle, WhiteboardImage, WhiteboardModal } from './WhiteboardModal'
+import { WhiteboardHandle, WhiteboardModal } from './WhiteboardModal'
+import type { WhiteboardImage } from '../types/chat'
 
 interface ChatInputProps {
-	onSendMessage: (message: string, images: WhiteboardImage[]) => void
-	waitingForResponse: boolean
+	onSendMessage: (message: string, images: WhiteboardImage[]) => void | Promise<void>
+	disabled?: boolean
+	isSending?: boolean
 	scrollToBottom: (behavior?: ScrollBehavior) => void
 	state: ReturnType<typeof useChatInputState>[0]
 	dispatch: ReturnType<typeof useChatInputState>[1]
@@ -18,7 +20,8 @@ interface ChatInputProps {
 
 export function ChatInput({
 	onSendMessage,
-	waitingForResponse,
+	disabled: inputDisabled = false,
+	isSending = false,
 	scrollToBottom,
 	state,
 	dispatch,
@@ -28,7 +31,7 @@ export function ChatInput({
 	const [exportError, setExportError] = useState<string | null>(null)
 	const whiteboardRef = useRef<WhiteboardHandle>(null)
 	const sendingRef = useRef(false)
-	const disabled = waitingForResponse || isDragging || isExporting
+	const disabled = inputDisabled || isSending || isDragging || isExporting
 
 	const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -69,9 +72,9 @@ export function ChatInput({
 				attachments = images.filter((item) => item.id !== openWhiteboard.id)
 				if (image) attachments = [...attachments, image]
 			}
-			if (input.trim() || attachments.length) onSendMessage(input, attachments)
+			if (input.trim() || attachments.length) await onSendMessage(input, attachments)
 		} catch {
-			setExportError('画板导出失败，草稿已保留，请重试。')
+			setExportError('发送失败，草稿已保留，请重试。')
 		} finally {
 			sendingRef.current = false
 			setIsExporting(false)
@@ -189,7 +192,7 @@ export function ChatInput({
 					autoFocus={true}
 					rows={1}
 				/>
-				{waitingForResponse && (
+				{isSending && (
 					<div className="input-spinner">
 						<DefaultSpinner />
 					</div>

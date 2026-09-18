@@ -1,0 +1,17 @@
+{
+  "name": "@chat/duo-chat",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -H 0.0.0.0 -p 3001",
+    "build": "next build",
+    "start": "next start -p 3001",
+    "typecheck": "tsc --noEmit --incremental false"
+  },
+  "dependencies": {
+    "next": "^16.3.0",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "@chat/ui": "*"
+  }
+}

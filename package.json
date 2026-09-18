@@ -1,32 +1,33 @@
 {
-	"name": "tldraw-chat-app-example",
-	"version": "0.1.0",
-	"private": true,
-	"author": {
-		"name": "tldraw GB Ltd.",
-		"email": "hello@tldraw.com"
-	},
-	"homepage": "https://tldraw.dev",
-	"license": "MIT",
-	"scripts": {
-		"dev": "next dev -H 0.0.0.0",
-		"build": "next build",
-		"start": "next start"
-	},
-	"dependencies": {
-		"@ai-sdk/google": "^4.0.64",
-		"@ai-sdk/react": "^4.0.96",
-		"@google/genai": "^1.17.0",
-		"@types/node": "^22.15.31",
-		"@types/react": "^19.2.7",
-		"@types/react-dom": "^19.2.3",
-		"ai": "^7.0.93",
-		"next": "^16.3.0",
-		"react": "^19.2.1",
-		"react-dom": "^19.2.1",
-		"react-markdown": "^10.1.0",
-		"tldraw": "^5.4.0",
-		"typescript": "^5.8.3",
-		"zod": "^4.1.8"
-	}
+  "name": "tldraw-chat-app-example",
+  "version": "0.1.0",
+  "private": true,
+  "author": {
+    "name": "tldraw GB Ltd.",
+    "email": "hello@tldraw.com"
+  },
+  "homepage": "https://tldraw.dev",
+  "license": "MIT",
+  "scripts": {
+    "dev": "npm run dev:ai",
+    "dev:ai": "npm run dev --workspace=@chat/ai-chat",
+    "dev:duo": "npm run dev --workspace=@chat/duo-chat",
+    "build": "npm run build --workspaces --if-present",
+    "build:ai": "npm run build --workspace=@chat/ai-chat",
+    "build:duo": "npm run build --workspace=@chat/duo-chat",
+    "start": "npm run start --workspace=@chat/ai-chat",
+    "start:duo": "npm run start --workspace=@chat/duo-chat",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspace=@chat/ai-chat"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "@types/node": "^22.15.31",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3"
+  }
 }

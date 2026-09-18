@@ -1,54 +1,54 @@
-<div alt style="text-align: center; transform: scale(.5);">
-	<picture>
-		<source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/tldraw/tldraw/main/assets/github-hero-dark.png" />
-		<img alt="tldraw" src="https://raw.githubusercontent.com/tldraw/tldraw/main/assets/github-hero-light.png" />
-	</picture>
-</div>
+# AI Chat and Duo Chat
 
-This repo contains a starter-kit for making an AI chat application using [tldraw](https://github.com/tldraw/tldraw).
+Two Next.js apps share the chat UI and tldraw editor through an npm workspace.
 
-## Local development
+## Development
 
-Install dependencies with `yarn` or `npm install`.
-
-Run the development server with `yarn dev` or `npm run dev`.
-
-Open `http://localhost:3000/` in your browser to see the app.
-
-This starter kit demonstrates how to build an AI chat application that uses tldraw to provide sketches and annotated image to the model. The app features:
-
-- Integrated whiteboard for providing visual context
-- Image annotation and markup
-- Easy switching between text chat and visual canvas input
-
-Key interactions include:
-
-- Chat with AI using natural language
-- Click the whiteboard button to open the tldraw canvas
-- Draw, sketch, and create diagrams to supplement conversations
-- Annotate images and visual content directly on the canvas
-
-## Environment setup
-
-Create a `.env.local` file in the root directory and add your Google Generative API key:
-
-```
-GOOGLE_GENERATIVE_AI_API_KEY=your_gemini_api_key_here
+```sh
+npm ci
+npm run dev:ai   # http://localhost:3000 (also npm run dev)
+npm run dev:duo  # http://localhost:3001
 ```
 
-Get your API key from [Google AI Studio](https://aistudio.google.com/apikey).
-You can also switch to a different provider using the [Vercel AI SDK](https://ai-sdk.dev/providers/ai-sdk-providers).
+AI configuration lives in `apps/ai-chat/.env.local`:
 
-## File structure
+```dotenv
+GOOGLE_GENERATIVE_AI_API_KEY=your_key_here
+```
 
-- **`src/app/page.tsx`:** The main entry point that renders the chat interface
-- **`src/components/Chat.tsx`:** The main chat container using the Vercel AI SDK's useChat hook
-- **`src/components/MessageList.tsx`:** Scrollable message history with loading states
-- **`src/components/ChatMessage.tsx`:** Individual message display component
-- **`src/components/ChatInput.tsx`:** Input field with send functionality
-- **`src/components/WhiteboardModal.tsx`:** Modal component that integrates tldraw for drawing and sketching
-- **`src/app/api/chat/route.ts`:** Next.js API route using Vercel AI SDK for OpenAI integration
-- **`src/app/styles.css`:** CSS with responsive design for all components
+Existing root `.env.local` was moved there during the workspace migration. Environment files remain ignored. Duo has no AI dependency or AI endpoint and needs no credentials yet. Its current homepage is a scaffold; room creation, invitations and realtime messaging are not implemented.
+
+## Structure
+
+- `apps/ai-chat/src/components/Chat.tsx`: AI transport, history and AI-only states.
+- `apps/ai-chat/src/utils/toChatMessage.ts`: converts SDK messages to shared display data; original stored messages are unchanged.
+- `apps/ai-chat/src/app/api/`: AI chat and Google file-upload endpoints.
+- `apps/duo-chat/`: independent application entry point for two-person chat.
+- `packages/chat-ui/src/components/ChatView.tsx`: layout, drag/drop and draft editing.
+- `packages/chat-ui/src/components/`: shared message list, composer, image preview, icons and whiteboard.
+- `packages/chat-ui/src/types/chat.ts`: SDK-independent message parts and board metadata.
+- `packages/chat-ui/src/hooks/`: input state and scrolling.
+- `packages/chat-ui/src/styles/chat.css`: shared styles.
+
+Shared components accept data and callbacks. They do not call AI APIs or know about room storage. `ChatView.onSendMessage` can return a promise; the draft clears after it resolves and stays on rejection. AI keeps its existing SDK-controlled error handling and clears the draft when submitting. Thinking indicators are supplied by the AI app through a UI slot.
+
+## Checks and builds
+
+```sh
+npm run typecheck
+npm test            # message compatibility tests; Node 22.18+ or 24
+npm run build       # both apps
+npm run build:ai
+npm run build:duo
+npm run start       # AI production server, port 3000
+npm run start:duo    # Duo production server, port 3001
+```
+
+Use the root `package-lock.json` and install from the repository root. Each app has its own Next config, build output and environment files. Existing browser history is retained when the AI app is served on the same origin (hostname and port).
+
+## Deployment layout
+
+The intended Vercel projects use `apps/ai-chat` and `apps/duo-chat` as their respective Root Directories, with workspace files outside the app directory available to the build. Configure credentials separately; the Duo project does not need the Google AI key. This refactor does not create or deploy Vercel projects.
 
 ## License
 

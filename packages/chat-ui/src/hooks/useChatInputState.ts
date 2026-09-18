@@ -1,6 +1,6 @@
 import { useReducer } from 'react'
 import { TLEditorSnapshot } from 'tldraw'
-import { WhiteboardImage } from '../components/WhiteboardModal'
+import type { WhiteboardImage } from '../types/chat'
 
 interface OpenWhiteboard {
 	snapshot?: TLEditorSnapshot
