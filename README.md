@@ -16,7 +16,7 @@ AI configuration lives in `apps/ai-chat/.env.local`:
 GOOGLE_GENERATIVE_AI_API_KEY=your_key_here
 ```
 
-Existing root `.env.local` was moved there during the workspace migration. Environment files remain ignored. Duo has no AI dependency or AI endpoint and needs no credentials yet. Its current homepage is a scaffold; room creation, invitations and realtime messaging are not implemented.
+Existing root `.env.local` was moved there during the workspace migration. Environment files remain ignored. Duo has no AI dependency or AI endpoint. It now supports temporary text conversations using Supabase Broadcast and Presence; configure it as described below.
 
 ## Structure
 
@@ -73,3 +73,22 @@ Have questions, comments or feedback? [Join our discord](https://discord.tldraw.
 ## Contact
 
 Find us on Twitter/X at [@tldraw](https://twitter.com/tldraw).
+
+## Duo Broadcast prototype
+
+1. Create a Supabase project and obtain its Project URL and **publishable** key.
+2. Copy `apps/duo-chat/.env.example` to `apps/duo-chat/.env.local` and replace the placeholders. Never use a secret/service-role key in a `NEXT_PUBLIC_` variable.
+3. Ensure the project allows public Realtime channels. This version uses public Broadcast/Presence: no tables, SQL migrations, Auth or Storage setup is required.
+4. Restart `npm run dev:duo`, open `http://localhost:3001`, click 创建聊天, enter a nickname and join.
+5. Copy the invitation link into a second browser/window, enter another nickname and join. Both clients should see presence and exchange text.
+6. For phone testing, open the site using the computer's reachable LAN IP **before** copying the invitation, so the link does not contain localhost. Manual copying is available when HTTP blocks clipboard access.
+
+This is a temporary online prototype, not an authenticated private two-person room. Anyone with the room link can join; no strict two-person limit is enforced and sender identities are client-declared. Messages are only in page memory (latest 500), refresh clears them, and offline/late joiners receive no history. Server acknowledgement is not a delivery/read receipt. Failed sends keep the draft and reuse the message ID on retry. Messages are limited to 4,000 characters. Images, board attachments, snapshots, QR codes and durable history are deferred; AI's attachment tools remain available.
+
+The existing shared `ChatView` is reused; `attachmentsEnabled={false}` hides attachment controls in Duo and `centeredEmpty={false}` keeps the invitation/status header visible before the first message. The AI defaults are unchanged.
+
+Communication follows the official [Realtime Chat](https://supabase.com/library/docs/nextjs/realtime-chat), [Broadcast](https://supabase.com/docs/guides/realtime/broadcast) and [Presence](https://supabase.com/docs/guides/realtime/presence) patterns, with our own hook, payload validation and retry deduplication. The official UI is not installed.
+
+Manual acceptance: exchange messages both ways; verify different rooms do not receive each other's messages; close a peer and check presence updates; reconnect after disabling the network; verify failures preserve drafts; refresh and verify history disappears as documented. A real Supabase project is required for these network checks.
+
+Optional real-service smoke test (uses `.env.local` and temporary test channels): `node apps/duo-chat/tests/realtime-smoke.mjs`. Checks bidirectional messaging, channel separation, server acknowledgements and presence join/leave.

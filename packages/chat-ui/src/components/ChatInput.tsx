@@ -10,6 +10,8 @@ import { WhiteboardHandle, WhiteboardModal } from './WhiteboardModal'
 import type { WhiteboardImage } from '../types/chat'
 
 interface ChatInputProps {
+	maxMessageLength?: number
+	attachmentsEnabled?: boolean
 	onSendMessage: (message: string, images: WhiteboardImage[]) => void | Promise<void>
 	disabled?: boolean
 	isSending?: boolean
@@ -20,6 +22,8 @@ interface ChatInputProps {
 
 export function ChatInput({
 	onSendMessage,
+	attachmentsEnabled = true,
+	maxMessageLength,
 	disabled: inputDisabled = false,
 	isSending = false,
 	scrollToBottom,
@@ -183,6 +187,8 @@ export function ChatInput({
 			<div className="input-container">
 				<textarea
 					ref={textareaRef}
+					maxLength={maxMessageLength}
+					aria-label="Message"
 					value={input}
 					onChange={(e) => dispatch({ type: 'setInput', input: e.target.value })}
 					onKeyDown={handleKeyDown}
@@ -201,6 +207,7 @@ export function ChatInput({
 
 			{/* below the input we have several controls: */}
 			<div className="chat-input-bottom">
+				{attachmentsEnabled && <>
 				{/* a button to upload an image */}
 				<button
 					type="button"
@@ -223,6 +230,7 @@ export function ChatInput({
 				>
 					<WhiteboardIcon />
 				</button>
+				</>}
 				{/* a button to send the message */}
 				<button
 					type="submit"

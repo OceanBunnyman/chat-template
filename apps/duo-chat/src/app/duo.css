@@ -1,0 +1,15 @@
+.duo-entry { min-height: 100dvh; display: grid; place-items: center; padding: 24px; background: #f8fafc; }
+.duo-card { width: min(100%, 420px); display: grid; gap: 18px; padding: 28px; border: 1px solid #e2e8f0; border-radius: 22px; background: white; }
+.duo-card h1 { font-size: 30px; letter-spacing: -1px; }
+.duo-card p, .duo-header p { line-height: 1.5; }
+.duo-card input, .duo-header input { width: 100%; min-width: 0; padding: 12px; border: 1px solid #cbd5e1; border-radius: 10px; font: inherit; }
+.duo-card button, .duo-header button { padding: 11px 15px; border: 0; border-radius: 10px; color: white; background: #334155; font: inherit; cursor: pointer; }
+.duo-card button:disabled { opacity: .5; cursor: default; }
+.duo-note { font-size: 12px; color: #64748b; }
+.duo-header { display: grid; gap: 10px; width: 100%; padding: 10px 14px; }
+.duo-header-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.duo-header-row strong { margin-right: auto; }
+.duo-room .chat-container { min-height: 100dvh; }
+.duo-room .chat-header { z-index: 2; }
+.duo-room .message-list { min-height: 120px; }
+.duo-room .chat-header { position: sticky; top: 0; left: auto; width: 100%; background: white; border-bottom: 1px solid #e2e8f0; padding: 4px; }

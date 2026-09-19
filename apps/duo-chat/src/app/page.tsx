@@ -1,10 +1,13 @@
+'use client'
+import { useRouter } from 'next/navigation'
+import { randomId } from '../lib/messages'
+
 export default function Home() {
-  return (
-    <main className="tl-theme__light empty-chat-container">
-      <div className="empty-chat-content">
-        <h1 className="empty-chat-title">Duo Chat</h1>
-        <p>Private conversations for two. Room invitations and messaging are coming next.</p>
-      </div>
-    </main>
-  )
+  const router = useRouter()
+  return <main className="duo-entry"><section className="duo-card">
+    <h1>Duo Chat</h1>
+    <p>分享一个链接，和朋友聊一会儿。</p>
+    <button onClick={() => router.push(`/room/${randomId()}`)}>创建聊天</button>
+    <p className="duo-note">文字试用版。消息只保留在当前页面，不保存历史。</p>
+  </section></main>
 }

@@ -18,7 +18,7 @@
     "start": "npm run start --workspace=@chat/ai-chat",
     "start:duo": "npm run start --workspace=@chat/duo-chat",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm run test --workspace=@chat/ai-chat"
+    "test": "npm run test --workspaces --if-present"
   },
   "workspaces": [
     "apps/*",

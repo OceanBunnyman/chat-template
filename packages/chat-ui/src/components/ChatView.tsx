@@ -8,6 +8,9 @@ import { MessageList } from './MessageList'
 import type { ChatMessageData, ImageClickTarget, WhiteboardImage } from '../types/chat'
 
 interface ChatViewProps {
+	maxMessageLength?: number
+	attachmentsEnabled?: boolean
+	centeredEmpty?: boolean
 	messages: ChatMessageData[]
 	onSendMessage: (text: string, images: WhiteboardImage[]) => void | Promise<void>
 	disabled?: boolean
@@ -17,7 +20,7 @@ interface ChatViewProps {
 	afterMessages?: ReactNode
 }
 
-export function ChatView({ messages, onSendMessage, disabled = false, isSending = false, emptyTitle, header, afterMessages }: ChatViewProps) {
+export function ChatView({ messages, onSendMessage, disabled = false, isSending = false, emptyTitle, header, afterMessages, attachmentsEnabled = true, centeredEmpty = true, maxMessageLength }: ChatViewProps) {
 	const [chatInputState, chatInputDispatch] = useChatInputState()
 	const scrollToBottom = useScrollToBottom()
 	useEffect(() => { scrollToBottom() }, [messages, scrollToBottom])
@@ -32,6 +35,7 @@ export function ChatView({ messages, onSendMessage, disabled = false, isSending 
 	// they're dragging we keep track of a special isDragging state.
 	const handleDragOver = (e: React.DragEvent) => {
 		e.preventDefault()
+		if (!attachmentsEnabled || disabled) return
 		if (
 			e.dataTransfer.types.includes('Files') &&
 			!chatInputState.openWhiteboard &&
@@ -50,6 +54,7 @@ export function ChatView({ messages, onSendMessage, disabled = false, isSending 
 
 	const handleDrop = (e: React.DragEvent) => {
 		e.preventDefault()
+		if (!attachmentsEnabled || disabled) return
 		const files = Array.from(e.dataTransfer.files).filter((file) =>
 			file.type.startsWith('image/')
 		)
@@ -61,7 +66,7 @@ export function ChatView({ messages, onSendMessage, disabled = false, isSending 
 	}
 
 	// if the chat is empty, we put the input area right in the middle of the page
-	if (messages.length === 0) {
+	if (centeredEmpty && messages.length === 0) {
 		return (
 			<div
 				className="empty-chat-container"
@@ -74,6 +79,8 @@ export function ChatView({ messages, onSendMessage, disabled = false, isSending 
 					<div className="centered-input">
 						<ChatInput
 							onSendMessage={sendDraft}
+					attachmentsEnabled={attachmentsEnabled}
+					maxMessageLength={maxMessageLength}
 							disabled={disabled} isSending={isSending}
 							scrollToBottom={scrollToBottom}
 							state={chatInputState}
@@ -99,6 +106,8 @@ export function ChatView({ messages, onSendMessage, disabled = false, isSending 
 			<div className="chat-footer">
 				<ChatInput
 					onSendMessage={sendDraft}
+					attachmentsEnabled={attachmentsEnabled}
+					maxMessageLength={maxMessageLength}
 					disabled={disabled} isSending={isSending}
 					scrollToBottom={scrollToBottom}
 					state={chatInputState}
