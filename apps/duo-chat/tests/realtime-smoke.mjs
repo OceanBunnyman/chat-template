@@ -23,7 +23,12 @@ try {
  assert.equal(received[0][0].text,'reply from B')
  assert.equal(received[1][0].text,'hello from A')
  assert.equal(received[2].length,0)
+ const attachment = {filename:'board.png',mediaType:'image/png',url:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII='}
+ const boardMessage = {id:randomUUID(),senderId:'smoke',nickname:'Test',text:'',createdAt:new Date().toISOString(),attachments:[attachment]}
+ assert.equal(await channels[0].send({type:'broadcast',event:'message',payload:boardMessage}),'ok')
+ await waitFor(()=>received[1].length===2)
+ assert.deepEqual(received[1][1],boardMessage)
  await clients[1].removeChannel(channels[1])
  await waitFor(()=>Object.keys(channels[0].presenceState()).length===1)
- console.log('PASS: bidirectional Broadcast, server acknowledgements, room isolation, Presence join/leave')
+ console.log('PASS: bidirectional Broadcast, server acknowledgements, room isolation, Presence join/leave, PNG attachment integrity')
 } finally { await Promise.all(clients.map(c=>c.removeAllChannels())); clients.forEach(c=>c.realtime.disconnect()) }

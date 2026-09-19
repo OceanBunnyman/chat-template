@@ -1,7 +1,7 @@
 'use client'
 import { useMemo, useState, type FormEvent } from 'react'
 import { ChatView } from '@chat/ui/components/ChatView'
-import { MAX_TEXT_LENGTH, randomId } from '../lib/messages'
+import { MAX_TEXT_LENGTH, messageParts, randomId } from '../lib/messages'
 import { useRealtimeChat } from '../hooks/useRealtimeChat'
 
 export function DuoRoom({ roomId }: { roomId: string }) {
@@ -18,7 +18,7 @@ export function DuoRoom({ roomId }: { roomId: string }) {
       <label htmlFor="nickname">昵称</label>
       <input id="nickname" value={nickname} onChange={e => setNickname(e.target.value)} maxLength={40} required autoComplete="nickname" />
       <button disabled={!nickname.trim()}>加入聊天</button>
-      <p className="duo-note">临时文字聊天室：刷新后记录消失。任何持有链接的人都能加入。</p>
+      <p className="duo-note">临时聊天室：刷新后记录消失。任何持有链接的人都能加入。</p>
       <a href="/">返回首页</a>
     </form>
   </main>
@@ -31,7 +31,7 @@ function ConnectedRoom({ roomId, participant }: { roomId: string; participant: {
   const [shareUrl, setShareUrl] = useState('')
   const messages = useMemo(() => chat.messages.map(message => ({
     id: message.id, isMine: message.senderId === participant.id,
-    parts: [{ type: 'text' as const, text: message.text }],
+    parts: messageParts(message),
   })), [chat.messages, participant.id])
   async function share() {
     const url = window.location.href
@@ -43,12 +43,12 @@ function ConnectedRoom({ roomId, participant }: { roomId: string; participant: {
   }
   return <main className="tl-theme__light duo-room">
     <ChatView messages={messages} onSendMessage={chat.sendMessage}
-      attachmentsEnabled={false} centeredEmpty={false} maxMessageLength={MAX_TEXT_LENGTH}
+      attachmentsEnabled={true} centeredEmpty={false} maxMessageLength={MAX_TEXT_LENGTH}
       disabled={chat.status !== 'connected'} emptyTitle="开始对话"
       header={<div className="duo-header">
         <div className="duo-header-row"><strong>Duo Chat · {participant.name}</strong><button onClick={share}>复制邀请链接</button><a href="/">离开</a></div>
         <p role="status">{chat.status === 'connecting' ? '连接中…' : chat.status === 'disconnected' ? '未连接' : chat.peers.length ? `在线：${chat.peers.join('、')}` : '已连接 · 等待朋友加入'}</p>
-        <p className="duo-note">临时文字聊天 · 刷新清空 · 离线消息不补发 · 链接可被多人加入</p>
+        <p className="duo-note">临时聊天 · 刷新清空 · 离线消息不补发 · 链接可被多人加入</p>
         {copyState && <p role="status">{copyState}</p>}
         {shareUrl && <input aria-label="邀请链接" readOnly value={shareUrl} onFocus={e => e.target.select()} />}
         {chat.error && <p role="alert">{chat.error}</p>}

@@ -7,7 +7,7 @@ import { useChatMessageStorage } from '@/hooks/useChatMessageStorage'
 import { uploadMessageContents } from '@/utils/uploadMessageContents'
 import { ChatView } from '@chat/ui/components/ChatView'
 import { ClearChatIcon } from '@chat/ui/components/ClearChatIcon'
-import type { WhiteboardMetadata, WhiteboardImage } from '@chat/ui/types'
+import type { WhiteboardImage } from '@chat/ui/types'
 import { toChatMessage } from '../utils/toChatMessage'
 
 
@@ -73,16 +73,11 @@ function ChatInner({
 		(text: string, images: WhiteboardImage[]) => {
 
 			const parts: (TextUIPart | FileUIPart)[] = images.map((image): FileUIPart => {
-				const tldrawMetadata: WhiteboardMetadata = {
-					snapshot: image.snapshot,
-					imageName: image.name,
-				}
 				return {
 					type: 'file',
 					url: image.url,
 					filename: image.name,
 					mediaType: image.type,
-					providerMetadata: { tldraw: tldrawMetadata } as any,
 				}
 			})
 

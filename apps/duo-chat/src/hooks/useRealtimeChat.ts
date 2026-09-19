@@ -1,5 +1,7 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { WhiteboardImage } from '@chat/ui/types'
+import { preparePngAttachments } from '../lib/png-attachments'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { getSupabase } from '../lib/supabase'
 import { appendMessage, isBroadcastMessage, MAX_TEXT_LENGTH, randomId, type BroadcastMessage } from '../lib/messages'
@@ -65,15 +67,18 @@ export function useRealtimeChat(roomId: string, senderId: string, nickname: stri
     }
   }, [roomId, senderId, nickname, attempt])
 
-  const sendMessage = useCallback(async (text: string) => {
+  const sendMessage = useCallback(async (text: string, images: WhiteboardImage[] = []) => {
     const channel = channelRef.current
     if (!channel || !ready.current) throw new Error('尚未连接')
     const trimmed = text.trim()
-    if (!trimmed || trimmed.length > MAX_TEXT_LENGTH) throw new Error('文字长度不符合要求')
+    if ((!trimmed && images.length === 0) || trimmed.length > MAX_TEXT_LENGTH) throw new Error('文字长度不符合要求')
+    const attachments = await preparePngAttachments(images)
+    if (!ready.current || channelRef.current !== channel) throw new Error('连接已中断')
     // Reuse the ID on retry: a lost acknowledgement must not duplicate the receiver's message.
-    const message = pending.current?.text === trimmed ? pending.current : {
-      id: randomId(), senderId, nickname, text: trimmed, createdAt: new Date().toISOString(),
+    const message = pending.current?.text === trimmed && JSON.stringify(pending.current.attachments) === JSON.stringify(attachments) ? pending.current : {
+      id: randomId(), senderId, nickname, text: trimmed, attachments, createdAt: new Date().toISOString(),
     }
+    if (!isBroadcastMessage(message)) throw new Error('附件消息超出传输限制')
     pending.current = message
     const result = await channel.send({ type: 'broadcast', event: 'message', payload: message })
     if (result !== 'ok') throw new Error('服务器未确认发送')

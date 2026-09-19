@@ -16,7 +16,7 @@ AI configuration lives in `apps/ai-chat/.env.local`:
 GOOGLE_GENERATIVE_AI_API_KEY=your_key_here
 ```
 
-Existing root `.env.local` was moved there during the workspace migration. Environment files remain ignored. Duo has no AI dependency or AI endpoint. It now supports temporary text conversations using Supabase Broadcast and Presence; configure it as described below.
+Existing root `.env.local` was moved there during the workspace migration. Environment files remain ignored. Duo has no AI dependency or AI endpoint. It now supports temporary text and PNG conversations using Supabase Broadcast and Presence; configure it as described below.
 
 ## Structure
 
@@ -83,12 +83,18 @@ Find us on Twitter/X at [@tldraw](https://twitter.com/tldraw).
 5. Copy the invitation link into a second browser/window, enter another nickname and join. Both clients should see presence and exchange text.
 6. For phone testing, open the site using the computer's reachable LAN IP **before** copying the invitation, so the link does not contain localhost. Manual copying is available when HTTP blocks clipboard access.
 
-This is a temporary online prototype, not an authenticated private two-person room. Anyone with the room link can join; no strict two-person limit is enforced and sender identities are client-declared. Messages are only in page memory (latest 500), refresh clears them, and offline/late joiners receive no history. Server acknowledgement is not a delivery/read receipt. Failed sends keep the draft and reuse the message ID on retry. Messages are limited to 4,000 characters. Images, board attachments, snapshots, QR codes and durable history are deferred; AI's attachment tools remain available.
+This is a temporary online prototype, not an authenticated private two-person room. Anyone with the room link can join; no strict two-person limit is enforced and sender identities are client-declared. Messages are only in page memory (latest 500), refresh clears them, and offline/late joiners receive no history. Server acknowledgement is not a delivery/read receipt. Failed sends keep the draft and reuse the message ID on retry. Messages are limited to 4,000 characters. PNG board attachments are supported. Editable snapshots, QR codes and durable history are not transmitted. Sent images are display-only in both apps; the composer still supports editing before sending.
 
-The existing shared `ChatView` is reused; `attachmentsEnabled={false}` hides attachment controls in Duo and `centeredEmpty={false}` keeps the invitation/status header visible before the first message. The AI defaults are unchanged.
+The existing shared `ChatView` is reused; `centeredEmpty={false}` keeps the invitation/status header visible before the first message. The AI defaults are unchanged.
 
 Communication follows the official [Realtime Chat](https://supabase.com/library/docs/nextjs/realtime-chat), [Broadcast](https://supabase.com/docs/guides/realtime/broadcast) and [Presence](https://supabase.com/docs/guides/realtime/presence) patterns, with our own hook, payload validation and retry deduplication. The official UI is not installed.
 
 Manual acceptance: exchange messages both ways; verify different rooms do not receive each other's messages; close a peer and check presence updates; reconnect after disabling the network; verify failures preserve drafts; refresh and verify history disappears as documented. A real Supabase project is required for these network checks.
 
 Optional real-service smoke test (uses `.env.local` and temporary test channels): `node apps/duo-chat/tests/realtime-smoke.mjs`. Checks bidirectional messaging, channel separation, server acknowledgements and presence join/leave.
+
+### PNG boards in Duo
+
+Draw or import images in the shared composer, then send the board as a PNG. Messages can contain PNGs without text. Received images are display-only: there is no click-to-edit action, and no snapshot is broadcast. New AI messages also omit editable snapshot metadata; old stored history remains readable.
+
+For this temporary Broadcast prototype, PNG data URLs travel inside the message (no Storage bucket needed). Up to four PNGs share a 180,000-character image budget; large images are proportionally downscaled and remain PNG. Payloads are checked against a 220,000-byte ceiling to leave room under Supabase Free's 256 KB limit. Original resolution is not guaranteed for large boards/photos. Failed sends retain the draft, and retries distinguish image changes as well as text. Page history is capped at 500 messages / approximately 8 MB; refresh still clears it. A later Storage implementation can preserve full-resolution attachments without this inline limit.

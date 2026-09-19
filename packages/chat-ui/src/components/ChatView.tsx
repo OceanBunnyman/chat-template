@@ -1,11 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, type ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { useChatInputState } from '../hooks/useChatInputState'
 import { useScrollToBottom } from '../hooks/useScrollToBottom'
 import { ChatInput } from './ChatInput'
 import { MessageList } from './MessageList'
-import type { ChatMessageData, ImageClickTarget, WhiteboardImage } from '../types/chat'
+import type { ChatMessageData, WhiteboardImage } from '../types/chat'
 
 interface ChatViewProps {
 	maxMessageLength?: number
@@ -24,9 +24,6 @@ export function ChatView({ messages, onSendMessage, disabled = false, isSending 
 	const [chatInputState, chatInputDispatch] = useChatInputState()
 	const scrollToBottom = useScrollToBottom()
 	useEffect(() => { scrollToBottom() }, [messages, scrollToBottom])
-	const handleImageClick = useCallback((opts: ImageClickTarget) => {
-		chatInputDispatch({ type: 'openWhiteboard', ...opts })
-	}, [chatInputDispatch])
 	const sendDraft = async (text: string, images: WhiteboardImage[]) => {
 		await onSendMessage(text, images)
 		chatInputDispatch({ type: 'clear' })
@@ -101,7 +98,7 @@ export function ChatView({ messages, onSendMessage, disabled = false, isSending 
 			onDrop={handleDrop}
 		>
 			{header ? <div className="chat-header">{header}</div> : null}
-			<MessageList messages={messages} onImageClick={handleImageClick} />
+			<MessageList messages={messages} />
 			{afterMessages}
 			<div className="chat-footer">
 				<ChatInput
