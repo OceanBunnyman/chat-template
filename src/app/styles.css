@@ -453,27 +453,41 @@ body {
 	backdrop-filter: blur(10px);
 }
 
+.fixed-board-container {
+	width: 100%;
+	display: flex;
+	justify-content: center;
+	background: #e2e8f0;
+	border-radius: 8px;
+	margin-bottom: 20px;
+}
+
 .modal-popup {
 	position: relative;
 	width: 100%;
 	max-width: 800px;
 	height: 360px;
+	flex-shrink: 0;
+	outline: 1px solid #cbd5e1;
 	border-radius: 8px;
 	/* box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); */
 	overflow: hidden;
 	display: flex;
 	flex-direction: column;
-	margin-bottom: 20px;
+	margin-bottom: 0;
 
 }
 
 .modal-popup .tlui-main-toolbar--horizontal {
 	position: absolute;
-	right: 12px;
-	bottom: 12px;
+	top: 8px;
+	left: 50%;
+	right: auto;
+	bottom: auto;
+	transform: translateX(-50%);
 	width: fit-content;
 	padding-bottom: 0;
-	justify-content: flex-end;
+	justify-content: center;
 }
 
 .modal-overlay .tl-container {

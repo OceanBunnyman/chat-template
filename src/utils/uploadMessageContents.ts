@@ -48,7 +48,21 @@ export async function uploadMessageContents(messages: UIMessage[]) {
 							},
 						})
 
+						if (!response.ok) {
+							const body = await response.text()
+							let message = `图片上传失败（HTTP ${response.status}），请重试。`
+							try {
+								const error = JSON.parse(body)
+								if (typeof error.error === 'string') message = error.error
+							} catch {
+								// Proxies and older servers may return plain text or HTML.
+							}
+							throw new Error(message)
+						}
 						const data: UploadedMetadata = await response.json()
+						if (!data.uploadedUrl || !data.expiresAt) {
+							throw new Error('图片上传返回的数据不完整，请重试。')
+						}
 
 						partToSend.url = data.uploadedUrl
 						if (partToSend.providerMetadata) {

@@ -1,22 +1,27 @@
-import { Ref, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { Ref, useCallback, useEffect, useLayoutEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import {
+	Box,
 	createShapeId,
 	uniqueId,
 	DefaultToolbar,
+	DefaultQuickActions,
 	DrawToolbarItem,
 	Editor,
 	EraserToolbarItem,
 	notifyIfFileNotAllowed,
 	SelectToolbarItem,
 	TLComponents,
+	TLUiOverrides,
 	Tldraw,
 	TldrawOptions,
 	TldrawUiButton,
 	TldrawUiButtonIcon,
 	TldrawUiMenuGroup,
+	TldrawUiMenuActionItem,
 	TldrawUiRow,
 	TLEditorSnapshot,
 	useEditor,
+	useCanUndo,
 	useToasts,
 	useTranslation,
 } from 'tldraw'
@@ -49,19 +54,31 @@ interface WhiteboardModalProps {
 	imageName?: string
 }
 
+const uiOverrides: TLUiOverrides = {
+	translations: {
+		'zh-cn': { 'comments.link-copied': '链接已复制' },
+	},
+}
+
 const options: Partial<TldrawOptions> = {
 	// disable the ability to create new pages:
 	maxPages: 1,
+	edgeScrollSpeed: 0,
 	// make sure the action shortcuts are always in the top-right menu area, not on the toolbar:
 	actionShortcutsLocation: 'menu',
 	// disable font pre-loading to avoid the ui popping in after the modal appears:
 	maxFontsToLoadBeforeRender: 0,
 }
 
-const IMPORTED_IMAGE_HEIGHT = 320
-const IMPORTED_IMAGE_WIDTH = 320
-const IMPORTED_IMAGE_GAP = 48
-const MOBILE_LAYOUT_MAX_WIDTH = 768
+// Persist the document boundary in page metadata, so it travels with the snapshot.
+function readBoardBounds(editor: Editor): Box | null {
+	const value = editor.getCurrentPage().meta.fixedBoardBounds
+	if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+	const { x, y, w, h } = value
+	if (![x, y, w, h].every((n) => typeof n === 'number' && Number.isFinite(n))) return null
+	if (Number(w) <= 0 || Number(h) <= 0) return null
+	return new Box(Number(x), Number(y), Number(w), Number(h))
+}
 
 export function WhiteboardModal({
 	initialSnapshot,
@@ -72,6 +89,39 @@ export function WhiteboardModal({
 	imageName,
 }: WhiteboardModalProps) {
 	const [editor, setEditor] = useState<Editor | null>(null)
+
+	const containerRef = useRef<HTMLDivElement>(null)
+	const [boardBounds, setBoardBounds] = useState<Box | null>(null)
+	const [displaySize, setDisplaySize] = useState<{ width: number; height: number } | null>(null)
+
+	useLayoutEffect(() => {
+		const container = containerRef.current
+		if (!container) return
+		// Use the layout viewport: opening the software keyboard must not resize the document.
+		const measure = () => {
+			const width = container.clientWidth
+			const height = Math.max(180, Math.min(600, window.innerHeight - 240))
+			const scale = boardBounds ? Math.min(width / boardBounds.w, height / boardBounds.h) : 1
+			setDisplaySize({
+				width: boardBounds ? boardBounds.w * scale : width,
+				height: boardBounds ? boardBounds.h * scale : height,
+			})
+		}
+		measure()
+		const observer = new ResizeObserver(measure)
+		observer.observe(container)
+		window.addEventListener('resize', measure)
+		return () => {
+			observer.disconnect()
+			window.removeEventListener('resize', measure)
+		}
+	}, [boardBounds])
+
+	useLayoutEffect(() => {
+		if (!editor || !boardBounds || !displaySize) return
+		editor.updateViewportScreenBounds(editor.getContainer())
+		editor.setCamera({ x: -boardBounds.x, y: -boardBounds.y, z: displaySize.width / boardBounds.w }, { force: true })
+	}, [editor, boardBounds, displaySize])
 
 	const pendingImport = useRef<Promise<void> | null>(null)
 	const exportImage = useCallback(async () => {
@@ -85,7 +135,11 @@ export function WhiteboardModal({
 		}
 
 		// Export the latest board when the chat composer sends the message.
-		const image = await editor.toImageDataUrl(shapes, { format: 'png' })
+		const bounds = readBoardBounds(editor)
+		if (!bounds) throw new Error('画板尺寸尚未初始化。')
+		const image = await editor.toImageDataUrl(shapes, {
+			format: 'png', bounds, padding: 0, background: true, scale: 1, pixelRatio: 1,
+		})
 
 		// we also take a snapshot of the editor state, so we can still edit
 		// it if we open it up again later, and we pass the image data and the
@@ -115,6 +169,10 @@ export function WhiteboardModal({
 				</DefaultToolbar>
 			),
 			MainMenu: null,
+			QuickActions: UndoOnlyActions,
+			ActionsMenu: null,
+			NavigationPanel: null,
+			Minimap: null,
 			StylePanel: null,
 			ImageToolbar: null,
 			// The board is attached automatically; this action discards the open draft.
@@ -135,9 +193,11 @@ export function WhiteboardModal({
 	)
 
 	return (
-		<div className="modal-popup">
+		<div className="fixed-board-container" ref={containerRef}>
+			{displaySize && <div className="modal-popup" style={displaySize}>
 			<Tldraw
 				components={components}
+				overrides={uiOverrides}
 				forceMobile
 				options={options}
 				snapshot={initialSnapshot}
@@ -147,15 +207,31 @@ export function WhiteboardModal({
 
 					editor.user.updateUserPreferences({ colorScheme: 'light' })
 					editor.selectNone()
-					editor.zoomToSelection()
+					const saved = readBoardBounds(editor)
+					// Legacy snapshots keep all existing content inside their initial boundary.
+					const existing = editor.getCurrentPageShapes().map((shape) => editor.getShapePageBounds(shape)).filter((box): box is Box => !!box)
+					const bounds = saved ?? (existing.length ? Box.Common(existing).expandBy(24) : new Box(0, 0, Math.round(displaySize.width), Math.round(displaySize.height)))
+					editor.updatePage({ id: editor.getCurrentPageId(), meta: { ...editor.getCurrentPage().meta, fixedBoardBounds: { x: bounds.x, y: bounds.y, w: bounds.w, h: bounds.h } } })
+					editor.setCameraOptions({ isLocked: true, wheelBehavior: 'none' })
+					setBoardBounds(bounds)
 				}}
 			>
 				{/* if the user uploaded a file, we insert it in a special component. this means we
 				can use hooks that depend on tldraw's ui to do things like show a toast if
 				something goes wrong. */}
-				<InsideOfTldrawContext uploadedFiles={uploadedFiles} pendingImport={pendingImport} />
+				{boardBounds && <InsideOfTldrawContext uploadedFiles={uploadedFiles} pendingImport={pendingImport} />}
 			</Tldraw>
+			</div>}
 		</div>
+	)
+}
+
+function UndoOnlyActions() {
+	const canUndo = useCanUndo()
+	return (
+		<DefaultQuickActions>
+			<TldrawUiMenuActionItem actionId="undo" disabled={!canUndo} />
+		</DefaultQuickActions>
 	)
 }
 
@@ -190,59 +266,29 @@ function InsideOfTldrawContext({ uploadedFiles, pendingImport }: { uploadedFiles
 
 			if (assets.length === 0 || editor.isDisposed) return
 
-			const useVerticalLayout =
-				editor.getViewportScreenBounds().w <= MOBILE_LAYOUT_MAX_WIDTH
-			const imageSizes = assets.map((asset) =>
-				useVerticalLayout
-					? {
-							w: IMPORTED_IMAGE_WIDTH,
-							h: (asset.props.h / Math.max(asset.props.w, 1)) * IMPORTED_IMAGE_WIDTH,
-						}
-					: {
-							w: (asset.props.w / Math.max(asset.props.h, 1)) * IMPORTED_IMAGE_HEIGHT,
-							h: IMPORTED_IMAGE_HEIGHT,
-						}
-			)
-			const totalWidth = useVerticalLayout
-				? IMPORTED_IMAGE_WIDTH
-				: imageSizes.reduce((sum, size) => sum + size.w, 0) +
-					IMPORTED_IMAGE_GAP * Math.max(assets.length - 1, 0)
-			const totalHeight = useVerticalLayout
-				? imageSizes.reduce((sum, size) => sum + size.h, 0) +
-					IMPORTED_IMAGE_GAP * Math.max(assets.length - 1, 0)
-				: IMPORTED_IMAGE_HEIGHT
-			const viewportCenter = editor.getViewportPageBounds().center
-			let nextX = viewportCenter.x - totalWidth / 2
-			let nextY = viewportCenter.y - totalHeight / 2
-
+			const bounds = readBoardBounds(editor)
+			if (!bounds) return
+			const columns = Math.max(1, Math.ceil(Math.sqrt(assets.length * bounds.w / bounds.h)))
+			const rows = Math.ceil(assets.length / columns)
+			const cellWidth = bounds.w / columns
+			const cellHeight = bounds.h / rows
 			const shapeIds = assets.map(() => createShapeId())
 			const shapes = assets.map((asset, index) => {
-				const size = imageSizes[index]
-				const shape = {
-					id: shapeIds[index],
-					type: 'image' as const,
-					x: nextX,
-					y: nextY,
-					props: {
-						assetId: asset.id,
-						w: size.w,
-						h: size.h,
-					},
+				const scale = Math.min(cellWidth * 0.85 / Math.max(asset.props.w, 1), cellHeight * 0.85 / Math.max(asset.props.h, 1))
+				const w = asset.props.w * scale
+				const h = asset.props.h * scale
+				return {
+					id: shapeIds[index], type: 'image' as const,
+					x: bounds.x + (index % columns) * cellWidth + (cellWidth - w) / 2,
+					y: bounds.y + Math.floor(index / columns) * cellHeight + (cellHeight - h) / 2,
+					props: { assetId: asset.id, w, h },
 				}
-
-				if (useVerticalLayout) {
-					nextY += size.h + IMPORTED_IMAGE_GAP
-				} else {
-					nextX += size.w + IMPORTED_IMAGE_GAP
-				}
-				return shape
 			})
 
 			editor
 				.createAssets(assets)
 				.createShapes(shapes)
 				.setSelectedShapes(shapeIds)
-				.zoomToSelection()
 				.setCurrentTool('select')
 		})()
 		pendingImport.current = task

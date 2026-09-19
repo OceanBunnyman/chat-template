@@ -26,6 +26,11 @@ export function useChatMessageStorage(): [UIMessage[] | null, (messages: UIMessa
 				if (isCancelled) return
 
 				const messages = JSON.parse(fileContents)
+				// Clearing chat persists []; the model-message validator requires a nonempty array.
+				if (Array.isArray(messages) && messages.length === 0) {
+					setInitialMessages([])
+					return
+				}
 				const validatedMessages = await validateUIMessages({ messages })
 				if (isCancelled) return
 
