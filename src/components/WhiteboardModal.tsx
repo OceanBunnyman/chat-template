@@ -201,6 +201,7 @@ export function WhiteboardModal({
 		<div className="fixed-board-container" ref={containerRef}>
 			{displaySize && <div className="modal-popup" style={displaySize}>
 			<Tldraw
+				licenseKey={process.env.NEXT_PUBLIC_TLDRAW_LICENSE_KEY}
 				shapeUtils={shapeUtils}
 				components={components}
 				overrides={uiOverrides}

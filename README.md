@@ -39,6 +39,20 @@ GOOGLE_GENERATIVE_AI_API_KEY=your_gemini_api_key_here
 Get your API key from [Google AI Studio](https://aistudio.google.com/apikey).
 You can also switch to a different provider using the [Vercel AI SDK](https://ai-sdk.dev/providers/ai-sdk-providers).
 
+### tldraw license on Vercel
+
+Local development does not require a tldraw license key. For production, add
+`NEXT_PUBLIC_TLDRAW_LICENSE_KEY` in your Vercel project's **Settings → Environment Variables**
+and paste your tldraw license key as the value. Enable **Production**, and **Preview** if you
+also need preview deployments. Make sure the license covers the domain you visit.
+
+Deploy the code containing the `licenseKey` prop after saving the variable. If the code is
+already deployed, redeploy: Next.js embeds `NEXT_PUBLIC_` variables at build time, so changing
+the variable does not update existing deployments. The tldraw license key is intended for
+client-side use and can be public; this does not apply to the Google API key.
+
+See the [tldraw license key documentation](https://tldraw.dev/sdk-features/license-key).
+
 ## File structure
 
 - **`src/app/page.tsx`:** The main entry point that renders the chat interface
