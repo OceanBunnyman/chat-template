@@ -1,5 +1,13 @@
+import dynamic from 'next/dynamic'
+import { DotsHorizontalIcon } from '@radix-ui/react-icons'
+import type { EmojiStyle } from 'emoji-picker-react'
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createShapeId, Editor } from 'tldraw'
+
+const FullEmojiPicker = dynamic(() => import('emoji-picker-react'), {
+	ssr: false,
+	loading: () => <p role="status">Loading emoji…</p>,
+})
 
 const EMOJIS = ['😀', '😂', '❤️', '👍', '👎', '🔥', '🎉', '👀', '✅', '❌', '❓', '💡']
 
@@ -15,7 +23,7 @@ export function EmojiPicker({ editor }: { editor: Editor }) {
 		if (!element) return
 		const measure = () => {
 			const slots = Math.max(1, Math.floor((element.clientWidth - 16 + 4) / 48))
-			setVisibleCount(slots >= EMOJIS.length ? EMOJIS.length : slots - 1)
+			setVisibleCount(Math.min(EMOJIS.length, slots - 1))
 		}
 		measure()
 		const observer = new ResizeObserver(measure)
@@ -97,12 +105,29 @@ export function EmojiPicker({ editor }: { editor: Editor }) {
 			}
 		}}>
 		{EMOJIS.slice(0, visibleCount).map(renderEmoji)}
-		{visibleCount < EMOJIS.length && <>
+		{<>
 			<button ref={moreButton} type="button" className="emoji-more" aria-label="More emoji"
-				aria-expanded={open} aria-controls={panelId} title="More emoji"
-				onClick={() => setOpen(value => !value)}>…</button>
-			{open && <div id={panelId} role="group" aria-label="More emoji" className="emoji-overflow">
-				{EMOJIS.slice(visibleCount).map(renderEmoji)}
+				aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? panelId : undefined} title="More emoji"
+				onClick={() => setOpen(value => !value)}><DotsHorizontalIcon /></button>
+			{open && <div id={panelId} role="dialog" aria-label="Choose emoji" className="emoji-overflow"
+				onKeyDown={(event) => {
+					event.stopPropagation()
+					if (event.key === 'Escape') { setOpen(false); moreButton.current?.focus() }
+				}}>
+				<button type="button" className="emoji-panel-close" aria-label="Close emoji picker"
+					onClick={() => { setOpen(false); moreButton.current?.focus() }}>×</button>
+				<FullEmojiPicker
+					width="100%"
+					height="min(420px, 55dvh)"
+					emojiStyle={'native' as EmojiStyle}
+					autoFocusSearch={false}
+					previewConfig={{ showPreview: false }}
+					onEmojiClick={({ emoji }) => {
+						addEmoji(emoji)
+						setOpen(false)
+						moreButton.current?.focus()
+					}}
+				/>
 			</div>}
 		</>}
 	</div>
